@@ -2,6 +2,7 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -142,6 +143,12 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+    for (var i = 0; i < data.length; i++) {
+      var chars = data[i].chars;
+      for (var j = 0; j < chars.length; j++) {
+        $charMap[chars[j]] = data[i];
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -171,10 +178,9 @@ function getWordsOf5E(chars) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
-        }
+      var charData = $charMap[chars[i]];
+      if (charData) {
+        arr.push(chars[i] + get5EColor(charData.fiveEle));
       }
     }
   }
@@ -211,18 +217,12 @@ function getCombinations(familyName) {
   var topDrawCount = 0;
   var top5E = 0;
 
-  for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
-    if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
-      topDrawCount = $chineseCharacters[key].draw;
-      top5E = (topDrawCount + 1) % 10;
-      $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
-      );
-      $(".familyNameDrawCount").html(topDrawCount);
-      break;
-    }
+  var charData = $charMap[familyName];
+  if (charData) {
+    topDrawCount = charData.draw;
+    top5E = (topDrawCount + 1) % 10;
+    $(".familyName").html(familyName + get5EColor(charData.fiveEle));
+    $(".familyNameDrawCount").html(topDrawCount);
   }
 
   var results = [];
