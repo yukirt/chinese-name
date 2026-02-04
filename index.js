@@ -27,6 +27,7 @@ $(function () {
       return -1;
     });
 
+    var options = [];
     for (key in results) {
       var item = results[key];
       var str =
@@ -40,10 +41,11 @@ $(function () {
         "(綜合分數:" +
         item.value +
         ")";
-      $("#combination").append(
+      options.push(
         $("<option></option>").attr("value", JSON.stringify(item)).text(str)
       );
     }
+    $("#combination").append(options);
   });
 
   $(this).on("change", "#combination", function () {
