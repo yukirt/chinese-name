@@ -48,7 +48,7 @@ $(function () {
 
   $(this).on("change", "#combination", function () {
     if ($(this).val() == "") return;
-    var val = $.parseJSON($(this).val());
+    var val = JSON.parse($(this).val());
 
     $pickWords = [];
     for (var key in $chineseCharacters) {
@@ -129,7 +129,8 @@ $(function () {
     $("#familyName").trigger("change");
   });
 
-  $(this).on("click", ".btnDisplay", function () {
+  $(this).on("click", ".btnDisplay", function (e) {
+    e.preventDefault();
     if ($(this).text() == "顯示") {
       $(this).text("隱藏");
       $(this).closest("tr").find("span").removeClass("hide");
