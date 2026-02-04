@@ -212,8 +212,6 @@ function getCombinations(familyName) {
   var top5E = 0;
 
   for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
     if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
       topDrawCount = $chineseCharacters[key].draw;
       top5E = (topDrawCount + 1) % 10;
