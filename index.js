@@ -1,7 +1,7 @@
 var $api_url = "/";
 var $quality = 75;
-var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -50,14 +50,6 @@ $(function () {
     if ($(this).val() == "") return;
     var val = $.parseJSON($(this).val());
 
-    $pickWords = [];
-    for (var key in $chineseCharacters) {
-      if (
-        $chineseCharacters[key].draw == val.middle ||
-        $chineseCharacters[key].draw == val.bottom
-      )
-        $pickWords.push($chineseCharacters[key]);
-    }
     var draw = 0;
 
     $(".sancai").html(val.key);
@@ -81,8 +73,12 @@ $(function () {
 
     $.get($api_url + $("#zodiac").val() + ".json", function (data) {
       $(".giveNameDrawCount1").html(val.middle);
-      $(".giveName1_better").html(getWordsOf5E(data.better["_" + val.middle]));
-      $(".giveName1_worse").html(getWordsOf5E(data.worse["_" + val.middle]));
+      $(".giveName1_better").html(
+        getWordsOf5E(data.better["_" + val.middle], val.middle)
+      );
+      $(".giveName1_worse").html(
+        getWordsOf5E(data.worse["_" + val.middle], val.middle)
+      );
 
       var normal = "";
       for (var key in $chineseCharacters) {
@@ -100,11 +96,15 @@ $(function () {
           }
         }
       }
-      $(".giveName1_normal").html(getWordsOf5E(normal));
+      $(".giveName1_normal").html(getWordsOf5E(normal, val.middle));
 
       $(".giveNameDrawCount2").html(val.bottom);
-      $(".giveName2_better").html(getWordsOf5E(data.better["_" + val.bottom]));
-      $(".giveName2_worse").html(getWordsOf5E(data.worse["_" + val.bottom]));
+      $(".giveName2_better").html(
+        getWordsOf5E(data.better["_" + val.bottom], val.bottom)
+      );
+      $(".giveName2_worse").html(
+        getWordsOf5E(data.worse["_" + val.bottom], val.bottom)
+      );
       var normal = "";
       for (var key in $chineseCharacters) {
         if ($chineseCharacters[key].draw === val.bottom) {
@@ -121,7 +121,7 @@ $(function () {
           }
         }
       }
-      $(".giveName2_normal").html(getWordsOf5E(normal));
+      $(".giveName2_normal").html(getWordsOf5E(normal, val.bottom));
     });
   });
 
@@ -142,6 +142,13 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+    // Build index for O(1) lookup
+    for (var i = 0; i < data.length; i++) {
+      var entry = data[i];
+      for (var j = 0; j < entry.chars.length; j++) {
+        $charMap[entry.chars[j]] = { draw: entry.draw, fiveEle: entry.fiveEle };
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -167,14 +174,13 @@ function get81Content(draw) {
   return $81[draw].content;
 }
 
-function getWordsOf5E(chars) {
+function getWordsOf5E(chars, targetDraw) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
-        }
+      var c = chars[i];
+      if ($charMap[c] && $charMap[c].draw === targetDraw) {
+        arr.push(c + get5EColor($charMap[c].fiveEle));
       }
     }
   }
@@ -207,22 +213,15 @@ function get5EColor(fiveEle) {
 }
 
 function getCombinations(familyName) {
-  console.log(familyName);
   var topDrawCount = 0;
   var top5E = 0;
 
-  for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
-    if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
-      topDrawCount = $chineseCharacters[key].draw;
-      top5E = (topDrawCount + 1) % 10;
-      $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
-      );
-      $(".familyNameDrawCount").html(topDrawCount);
-      break;
-    }
+  var charData = $charMap[familyName];
+  if (charData) {
+    topDrawCount = charData.draw;
+    top5E = (topDrawCount + 1) % 10;
+    $(".familyName").html(familyName + get5EColor(charData.fiveEle));
+    $(".familyNameDrawCount").html(topDrawCount);
   }
 
   var results = [];
