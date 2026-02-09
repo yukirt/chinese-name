@@ -2,6 +2,8 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
+var $drawMap = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -49,15 +51,8 @@ $(function () {
   $(this).on("change", "#combination", function () {
     if ($(this).val() == "") return;
     var val = $.parseJSON($(this).val());
+    var targetDraws = [val.middle, val.bottom];
 
-    $pickWords = [];
-    for (var key in $chineseCharacters) {
-      if (
-        $chineseCharacters[key].draw == val.middle ||
-        $chineseCharacters[key].draw == val.bottom
-      )
-        $pickWords.push($chineseCharacters[key]);
-    }
     var draw = 0;
 
     $(".sancai").html(val.key);
@@ -81,47 +76,43 @@ $(function () {
 
     $.get($api_url + $("#zodiac").val() + ".json", function (data) {
       $(".giveNameDrawCount1").html(val.middle);
-      $(".giveName1_better").html(getWordsOf5E(data.better["_" + val.middle]));
-      $(".giveName1_worse").html(getWordsOf5E(data.worse["_" + val.middle]));
+      $(".giveName1_better").html(getWordsOf5E(data.better["_" + val.middle], targetDraws));
+      $(".giveName1_worse").html(getWordsOf5E(data.worse["_" + val.middle], targetDraws));
 
       var normal = "";
-      for (var key in $chineseCharacters) {
-        if ($chineseCharacters[key].draw === val.middle) {
-          var chars = $chineseCharacters[key].chars;
-          var i = chars.length;
-          while (i--) {
-            if (
-              (!data.better["_" + val.middle] ||
-                data.better["_" + val.middle].indexOf(chars[i]) == -1) &&
-              (!data.worse["_" + val.middle] ||
-                data.worse["_" + val.middle].indexOf(chars[i]) == -1)
-            )
-              normal += chars[i];
-          }
+      var chars = $drawMap[val.middle];
+      if (chars) {
+        var i = chars.length;
+        while (i--) {
+          if (
+            (!data.better["_" + val.middle] ||
+              data.better["_" + val.middle].indexOf(chars[i]) == -1) &&
+            (!data.worse["_" + val.middle] ||
+              data.worse["_" + val.middle].indexOf(chars[i]) == -1)
+          )
+            normal += chars[i];
         }
       }
-      $(".giveName1_normal").html(getWordsOf5E(normal));
+      $(".giveName1_normal").html(getWordsOf5E(normal, targetDraws));
 
       $(".giveNameDrawCount2").html(val.bottom);
-      $(".giveName2_better").html(getWordsOf5E(data.better["_" + val.bottom]));
-      $(".giveName2_worse").html(getWordsOf5E(data.worse["_" + val.bottom]));
+      $(".giveName2_better").html(getWordsOf5E(data.better["_" + val.bottom], targetDraws));
+      $(".giveName2_worse").html(getWordsOf5E(data.worse["_" + val.bottom], targetDraws));
       var normal = "";
-      for (var key in $chineseCharacters) {
-        if ($chineseCharacters[key].draw === val.bottom) {
-          var chars = $chineseCharacters[key].chars;
-          var i = chars.length;
-          while (i--) {
-            if (
-              (!data.better["_" + val.bottom] ||
-                data.better["_" + val.bottom].indexOf(chars[i]) == -1) &&
-              (!data.worse["_" + val.bottom] ||
-                data.worse["_" + val.bottom].indexOf(chars[i]) == -1)
-            )
-              normal += chars[i];
-          }
+      var chars = $drawMap[val.bottom];
+      if (chars) {
+        var i = chars.length;
+        while (i--) {
+          if (
+            (!data.better["_" + val.bottom] ||
+              data.better["_" + val.bottom].indexOf(chars[i]) == -1) &&
+            (!data.worse["_" + val.bottom] ||
+              data.worse["_" + val.bottom].indexOf(chars[i]) == -1)
+          )
+            normal += chars[i];
         }
       }
-      $(".giveName2_normal").html(getWordsOf5E(normal));
+      $(".giveName2_normal").html(getWordsOf5E(normal, targetDraws));
     });
   });
 
@@ -142,6 +133,18 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+    // Optimize: Pre-calculate maps
+    for (var i = 0; i < data.length; i++) {
+        var entry = data[i];
+        if (!$drawMap[entry.draw]) $drawMap[entry.draw] = "";
+        $drawMap[entry.draw] += entry.chars;
+
+        for (var j = 0; j < entry.chars.length; j++) {
+            var char = entry.chars[j];
+            if (!$charMap[char]) $charMap[char] = [];
+            $charMap[char].push(entry);
+        }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -167,13 +170,16 @@ function get81Content(draw) {
   return $81[draw].content;
 }
 
-function getWordsOf5E(chars) {
+function getWordsOf5E(chars, targetDraws) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
+      var charInfos = $charMap[chars[i]];
+      if (charInfos) {
+        for (var k = 0; k < charInfos.length; k++) {
+          if (targetDraws.indexOf(charInfos[k].draw) != -1) {
+             arr.push(chars[i] + get5EColor(charInfos[k].fiveEle));
+          }
         }
       }
     }
@@ -211,18 +217,15 @@ function getCombinations(familyName) {
   var topDrawCount = 0;
   var top5E = 0;
 
-  for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
-    if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
-      topDrawCount = $chineseCharacters[key].draw;
+  // Optimized lookup
+  if ($charMap[familyName] && $charMap[familyName].length > 0) {
+      var info = $charMap[familyName][0]; // Use first match
+      topDrawCount = info.draw;
       top5E = (topDrawCount + 1) % 10;
       $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
+        familyName + get5EColor(info.fiveEle)
       );
       $(".familyNameDrawCount").html(topDrawCount);
-      break;
-    }
   }
 
   var results = [];
