@@ -2,6 +2,8 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
+var $charByDraw = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -50,13 +52,12 @@ $(function () {
     if ($(this).val() == "") return;
     var val = $.parseJSON($(this).val());
 
-    $pickWords = [];
-    for (var key in $chineseCharacters) {
-      if (
-        $chineseCharacters[key].draw == val.middle ||
-        $chineseCharacters[key].draw == val.bottom
-      )
-        $pickWords.push($chineseCharacters[key]);
+    if (val.middle == val.bottom) {
+      $pickWords = ($charByDraw[val.middle] || []).slice();
+    } else {
+      $pickWords = ($charByDraw[val.middle] || []).concat(
+        $charByDraw[val.bottom] || []
+      );
     }
     var draw = 0;
 
@@ -85,19 +86,18 @@ $(function () {
       $(".giveName1_worse").html(getWordsOf5E(data.worse["_" + val.middle]));
 
       var normal = "";
-      for (var key in $chineseCharacters) {
-        if ($chineseCharacters[key].draw === val.middle) {
-          var chars = $chineseCharacters[key].chars;
-          var i = chars.length;
-          while (i--) {
-            if (
-              (!data.better["_" + val.middle] ||
-                data.better["_" + val.middle].indexOf(chars[i]) == -1) &&
-              (!data.worse["_" + val.middle] ||
-                data.worse["_" + val.middle].indexOf(chars[i]) == -1)
-            )
-              normal += chars[i];
-          }
+      var middleChars = $charByDraw[val.middle] || [];
+      for (var key in middleChars) {
+        var chars = middleChars[key].chars;
+        var i = chars.length;
+        while (i--) {
+          if (
+            (!data.better["_" + val.middle] ||
+              data.better["_" + val.middle].indexOf(chars[i]) == -1) &&
+            (!data.worse["_" + val.middle] ||
+              data.worse["_" + val.middle].indexOf(chars[i]) == -1)
+          )
+            normal += chars[i];
         }
       }
       $(".giveName1_normal").html(getWordsOf5E(normal));
@@ -106,19 +106,18 @@ $(function () {
       $(".giveName2_better").html(getWordsOf5E(data.better["_" + val.bottom]));
       $(".giveName2_worse").html(getWordsOf5E(data.worse["_" + val.bottom]));
       var normal = "";
-      for (var key in $chineseCharacters) {
-        if ($chineseCharacters[key].draw === val.bottom) {
-          var chars = $chineseCharacters[key].chars;
-          var i = chars.length;
-          while (i--) {
-            if (
-              (!data.better["_" + val.bottom] ||
-                data.better["_" + val.bottom].indexOf(chars[i]) == -1) &&
-              (!data.worse["_" + val.bottom] ||
-                data.worse["_" + val.bottom].indexOf(chars[i]) == -1)
-            )
-              normal += chars[i];
-          }
+      var bottomChars = $charByDraw[val.bottom] || [];
+      for (var key in bottomChars) {
+        var chars = bottomChars[key].chars;
+        var i = chars.length;
+        while (i--) {
+          if (
+            (!data.better["_" + val.bottom] ||
+              data.better["_" + val.bottom].indexOf(chars[i]) == -1) &&
+            (!data.worse["_" + val.bottom] ||
+              data.worse["_" + val.bottom].indexOf(chars[i]) == -1)
+          )
+            normal += chars[i];
         }
       }
       $(".giveName2_normal").html(getWordsOf5E(normal));
@@ -142,6 +141,28 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+
+    // Performance optimization: Create indexes for O(1) lookup
+    $charMap = {};
+    $charByDraw = {};
+    for (var i = 0; i < data.length; i++) {
+      var item = data[i];
+
+      // Populate $charByDraw
+      if (!$charByDraw[item.draw]) {
+        $charByDraw[item.draw] = [];
+      }
+      $charByDraw[item.draw].push(item);
+
+      // Populate $charMap
+      for (var j = 0; j < item.chars.length; j++) {
+        var char = item.chars[j];
+        // Only keep the first occurrence to match original linear search behavior
+        if (!$charMap[char]) {
+          $charMap[char] = item;
+        }
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -211,18 +232,12 @@ function getCombinations(familyName) {
   var topDrawCount = 0;
   var top5E = 0;
 
-  for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
-    if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
-      topDrawCount = $chineseCharacters[key].draw;
-      top5E = (topDrawCount + 1) % 10;
-      $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
-      );
-      $(".familyNameDrawCount").html(topDrawCount);
-      break;
-    }
+  var charInfo = $charMap[familyName];
+  if (charInfo) {
+    topDrawCount = charInfo.draw;
+    top5E = (topDrawCount + 1) % 10;
+    $(".familyName").html(familyName + get5EColor(charInfo.fiveEle));
+    $(".familyNameDrawCount").html(topDrawCount);
   }
 
   var results = [];
