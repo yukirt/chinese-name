@@ -2,6 +2,7 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -142,6 +143,17 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+
+    // Build character map for O(1) lookups
+    for (var i = 0; i < $chineseCharacters.length; i++) {
+      var entry = $chineseCharacters[i];
+      var chars = entry.chars;
+      for (var j = 0; j < chars.length; j++) {
+        var char = chars[j];
+        if (!$charMap[char]) $charMap[char] = [];
+        $charMap[char].push(entry);
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -171,9 +183,14 @@ function getWordsOf5E(chars) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
+      var char = chars[i];
+      var entries = $charMap[char];
+      if (entries) {
+        for (var k = 0; k < entries.length; k++) {
+          var entry = entries[k];
+          if ($pickWords.indexOf(entry) != -1) {
+            arr.push(char + get5EColor(entry.fiveEle));
+          }
         }
       }
     }
@@ -211,18 +228,13 @@ function getCombinations(familyName) {
   var topDrawCount = 0;
   var top5E = 0;
 
-  for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
-    if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
-      topDrawCount = $chineseCharacters[key].draw;
-      top5E = (topDrawCount + 1) % 10;
-      $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
-      );
-      $(".familyNameDrawCount").html(topDrawCount);
-      break;
-    }
+  // Optimized lookup using hash map
+  if ($charMap[familyName] && $charMap[familyName].length > 0) {
+    var entry = $charMap[familyName][0];
+    topDrawCount = entry.draw;
+    top5E = (topDrawCount + 1) % 10;
+    $(".familyName").html(familyName + get5EColor(entry.fiveEle));
+    $(".familyNameDrawCount").html(topDrawCount);
   }
 
   var results = [];
