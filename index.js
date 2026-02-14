@@ -2,6 +2,7 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {}; // Optimization: Map for O(1) character lookup
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -142,6 +143,19 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+
+    // Optimization: Build map for O(1) character lookup
+    for (var i = 0; i < $chineseCharacters.length; i++) {
+        var entry = $chineseCharacters[i];
+        var chars = entry.chars;
+        for (var j = 0; j < chars.length; j++) {
+            var c = chars[j];
+            if (!$charMap[c]) {
+                $charMap[c] = [];
+            }
+            $charMap[c].push(entry);
+        }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -170,11 +184,21 @@ function get81Content(draw) {
 function getWordsOf5E(chars) {
   var arr = [];
   if (chars) {
+    // Optimization: Pre-calculate allowed draws from $pickWords
+    var allowedDraws = {};
+    for (var k in $pickWords) {
+        allowedDraws[$pickWords[k].draw] = true;
+    }
+
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
-        }
+      var c = chars[i];
+      if ($charMap[c]) {
+          var entries = $charMap[c];
+          for (var j = 0; j < entries.length; j++) {
+              if (allowedDraws[entries[j].draw]) {
+                  arr.push(c + get5EColor(entries[j].fiveEle));
+              }
+          }
       }
     }
   }
@@ -211,18 +235,20 @@ function getCombinations(familyName) {
   var topDrawCount = 0;
   var top5E = 0;
 
-  for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
-    if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
-      topDrawCount = $chineseCharacters[key].draw;
+  // Optimization: Use O(1) lookup
+  if ($charMap[familyName] && $charMap[familyName].length > 0) {
+      // Use the first match to preserve original behavior
+      var entry = $charMap[familyName][0];
+      topDrawCount = entry.draw;
       top5E = (topDrawCount + 1) % 10;
       $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
+        familyName + get5EColor(entry.fiveEle)
       );
       $(".familyNameDrawCount").html(topDrawCount);
-      break;
-    }
+  } else {
+      // Fallback or just do nothing if not found (original code behavior implicitly did nothing if break wasn't hit,
+      // but original code looped through all so variables would stay 0)
+      // If not found, topDrawCount is 0, which breaks Sancai calculation anyway.
   }
 
   var results = [];
