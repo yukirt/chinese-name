@@ -2,6 +2,7 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -85,18 +86,18 @@ $(function () {
       $(".giveName1_worse").html(getWordsOf5E(data.worse["_" + val.middle]));
 
       var normal = "";
-      for (var key in $chineseCharacters) {
-        if ($chineseCharacters[key].draw === val.middle) {
-          var chars = $chineseCharacters[key].chars;
-          var i = chars.length;
-          while (i--) {
+      for (var i = 0; i < $pickWords.length; i++) {
+        if ($pickWords[i].draw === val.middle) {
+          var chars = $pickWords[i].chars;
+          var j = chars.length;
+          while (j--) {
             if (
               (!data.better["_" + val.middle] ||
-                data.better["_" + val.middle].indexOf(chars[i]) == -1) &&
+                data.better["_" + val.middle].indexOf(chars[j]) == -1) &&
               (!data.worse["_" + val.middle] ||
-                data.worse["_" + val.middle].indexOf(chars[i]) == -1)
+                data.worse["_" + val.middle].indexOf(chars[j]) == -1)
             )
-              normal += chars[i];
+              normal += chars[j];
           }
         }
       }
@@ -106,18 +107,18 @@ $(function () {
       $(".giveName2_better").html(getWordsOf5E(data.better["_" + val.bottom]));
       $(".giveName2_worse").html(getWordsOf5E(data.worse["_" + val.bottom]));
       var normal = "";
-      for (var key in $chineseCharacters) {
-        if ($chineseCharacters[key].draw === val.bottom) {
-          var chars = $chineseCharacters[key].chars;
-          var i = chars.length;
-          while (i--) {
+      for (var i = 0; i < $pickWords.length; i++) {
+        if ($pickWords[i].draw === val.bottom) {
+          var chars = $pickWords[i].chars;
+          var j = chars.length;
+          while (j--) {
             if (
               (!data.better["_" + val.bottom] ||
-                data.better["_" + val.bottom].indexOf(chars[i]) == -1) &&
+                data.better["_" + val.bottom].indexOf(chars[j]) == -1) &&
               (!data.worse["_" + val.bottom] ||
-                data.worse["_" + val.bottom].indexOf(chars[i]) == -1)
+                data.worse["_" + val.bottom].indexOf(chars[j]) == -1)
             )
-              normal += chars[i];
+              normal += chars[j];
           }
         }
       }
@@ -142,6 +143,17 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+    for (var i = 0; i < data.length; i++) {
+      var group = data[i];
+      var chars = group.chars;
+      for (var j = 0; j < chars.length; j++) {
+        var c = chars[j];
+        if (!$charMap[c]) {
+          $charMap[c] = [];
+        }
+        $charMap[c].push(group);
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -171,9 +183,14 @@ function getWordsOf5E(chars) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
+      var c = chars[i];
+      var groups = $charMap[c];
+      if (groups) {
+        for (var j = 0; j < groups.length; j++) {
+          var group = groups[j];
+          if ($pickWords.indexOf(group) != -1) {
+            arr.push(c + get5EColor(group.fiveEle));
+          }
         }
       }
     }
@@ -211,18 +228,13 @@ function getCombinations(familyName) {
   var topDrawCount = 0;
   var top5E = 0;
 
-  for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
-    if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
-      topDrawCount = $chineseCharacters[key].draw;
-      top5E = (topDrawCount + 1) % 10;
-      $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
-      );
-      $(".familyNameDrawCount").html(topDrawCount);
-      break;
-    }
+  var groups = $charMap[familyName];
+  if (groups && groups.length > 0) {
+    var group = groups[0];
+    topDrawCount = group.draw;
+    top5E = (topDrawCount + 1) % 10;
+    $(".familyName").html(familyName + get5EColor(group.fiveEle));
+    $(".familyNameDrawCount").html(topDrawCount);
   }
 
   var results = [];
