@@ -2,6 +2,7 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -142,6 +143,20 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+
+    // Performance Optimization: Create a map for O(1) character lookup
+    $charMap = {};
+    for (var i = 0; i < $chineseCharacters.length; i++) {
+      var group = $chineseCharacters[i];
+      var chars = group.chars;
+      for (var j = 0; j < chars.length; j++) {
+        var char = chars[j];
+        if (!$charMap[char]) {
+          $charMap[char] = [];
+        }
+        $charMap[char].push(group);
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -169,11 +184,24 @@ function get81Content(draw) {
 
 function getWordsOf5E(chars) {
   var arr = [];
+
+  // Performance Optimization: Use $charMap for O(1) lookup
+  // instead of nested loops O(N*M)
+  // First, create a set of relevant draw counts from $pickWords
+  var relevantDraws = {};
+  for (var k = 0; k < $pickWords.length; k++) {
+    relevantDraws[$pickWords[k].draw] = true;
+  }
+
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
+      var char = chars[i];
+      var entries = $charMap[char];
+      if (entries) {
+        for (var j = 0; j < entries.length; j++) {
+          if (relevantDraws[entries[j].draw]) {
+            arr.push(char + get5EColor(entries[j].fiveEle));
+          }
         }
       }
     }
