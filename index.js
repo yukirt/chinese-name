@@ -2,6 +2,8 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
+var $relevantDraws = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -51,6 +53,10 @@ $(function () {
     var val = $.parseJSON($(this).val());
 
     $pickWords = [];
+    $relevantDraws = {};
+    $relevantDraws[val.middle] = true;
+    $relevantDraws[val.bottom] = true;
+
     for (var key in $chineseCharacters) {
       if (
         $chineseCharacters[key].draw == val.middle ||
@@ -142,6 +148,20 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+    // Pre-process characters into a map for O(1) lookup
+    // Map key: character, value: array of character objects (to handle duplicates with different properties)
+    $charMap = {};
+    for (var i = 0; i < data.length; i++) {
+      var group = data[i];
+      var chars = group.chars;
+      for (var j = 0; j < chars.length; j++) {
+        var char = chars[j];
+        if (!$charMap[char]) {
+          $charMap[char] = [];
+        }
+        $charMap[char].push(group);
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -167,13 +187,21 @@ function get81Content(draw) {
   return $81[draw].content;
 }
 
+// Optimized to use O(1) map lookup instead of nested loops
+// Previously O(N*M) where N is chars.length and M is pickWords.length
 function getWordsOf5E(chars) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
+      var char = chars[i];
+      if ($charMap[char]) {
+        var variants = $charMap[char];
+        for (var j = 0; j < variants.length; j++) {
+          var variant = variants[j];
+          // Check if this variant matches the relevant stroke counts (middle or bottom)
+          if ($relevantDraws[variant.draw]) {
+            arr.push(char + get5EColor(variant.fiveEle));
+          }
         }
       }
     }
