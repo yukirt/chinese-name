@@ -2,6 +2,7 @@ var $api_url = "/";
 var $quality = 75;
 var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -142,6 +143,18 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+    $charMap = {};
+    for (var i = 0; i < data.length; i++) {
+      var item = data[i];
+      var chars = item.chars;
+      for (var j = 0; j < chars.length; j++) {
+        var char = chars[j];
+        if (!$charMap[char]) $charMap[char] = [];
+        if ($charMap[char].indexOf(item) == -1) {
+          $charMap[char].push(item);
+        }
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -171,9 +184,12 @@ function getWordsOf5E(chars) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
+      var entries = $charMap[chars[i]];
+      if (entries) {
+        for (var j = 0; j < entries.length; j++) {
+          if ($pickWords.indexOf(entries[j]) != -1) {
+            arr.push(chars[i] + get5EColor(entries[j].fiveEle));
+          }
         }
       }
     }
