@@ -217,9 +217,9 @@ function getCombinations(familyName) {
     if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
       topDrawCount = $chineseCharacters[key].draw;
       top5E = (topDrawCount + 1) % 10;
-      $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
-      );
+      $(".familyName")
+        .text(familyName)
+        .append(get5EColor($chineseCharacters[key].fiveEle));
       $(".familyNameDrawCount").html(topDrawCount);
       break;
     }
