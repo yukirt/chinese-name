@@ -1,7 +1,8 @@
 var $api_url = "/";
 var $quality = 75;
-var $pickWords = [];
 var $chineseCharacters;
+var $charMap = {};
+var $selectedDraws = [];
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
@@ -50,14 +51,8 @@ $(function () {
     if ($(this).val() == "") return;
     var val = $.parseJSON($(this).val());
 
-    $pickWords = [];
-    for (var key in $chineseCharacters) {
-      if (
-        $chineseCharacters[key].draw == val.middle ||
-        $chineseCharacters[key].draw == val.bottom
-      )
-        $pickWords.push($chineseCharacters[key]);
-    }
+    $selectedDraws = [val.middle, val.bottom];
+
     var draw = 0;
 
     $(".sancai").html(val.key);
@@ -142,6 +137,20 @@ $(function () {
   $.get($api_url + "ChineseCharacters.json", function (data) {
     //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+    // Build optimization map
+    for (var i = 0; i < $chineseCharacters.length; i++) {
+        var item = $chineseCharacters[i];
+        var chars = item.chars;
+        for (var c = 0; c < chars.length; c++) {
+            var char = chars[c];
+            if (!$charMap[char]) {
+                $charMap[char] = [];
+            }
+            if ($charMap[char].indexOf(item) === -1) {
+                $charMap[char].push(item);
+            }
+        }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -171,9 +180,14 @@ function getWordsOf5E(chars) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
+      var char = chars[i];
+      var items = $charMap[char];
+      if (items) {
+        for (var k = 0; k < items.length; k++) {
+            var item = items[k];
+            if ($selectedDraws.indexOf(item.draw) !== -1) {
+                arr.push(char + get5EColor(item.fiveEle));
+            }
         }
       }
     }
