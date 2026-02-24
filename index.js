@@ -77,11 +77,6 @@ $(function () {
       $(".giveName1_worse").html(getWordsOf5E(data.worse["_" + val.middle]));
 
       var normal = "";
-      // Use $charMap for consistency and performance
-      // Search for characters with stroke count matching val.middle
-      // We need to iterate over all characters that have stroke count val.middle
-      // The easiest way is to iterate $chineseCharacters but we can optimize it if we index by stroke count.
-      // For now, keep it simple but consistent with the order (backward while loop as per review)
       if ($chineseCharacters) {
         var i = $chineseCharacters.length;
         while (i--) {
@@ -189,11 +184,7 @@ function renderResult(type, draw) {
   $("." + type + "5e").html(get5EColor(draw % 10));
   // Use .html() as these fields may contain <br /> tags for formatting
   $("." + type + "GoodOrbad").html($81[draw].text);
-  $("." + type + "Content").html(get81Content(draw));
-}
-
-function get81Content(draw) {
-  return $81[draw].content;
+  $("." + type + "Content").html($81[draw].content);
 }
 
 function getWordsOf5E(chars) {
