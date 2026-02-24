@@ -1,20 +1,20 @@
 var $api_url = "/";
 var $quality = 75;
-var $pickWords = [];
+var $selectedDraws = [];
 var $chineseCharacters;
+var $charMap = {};
 var $sancaiKey = ["水", "木", "木", "火", "火", "土", "土", "金", "金", "水"];
 var $sancai;
 var $81;
 
 $(function () {
   $(this).on("change", "#familyName", function () {
-    if ($(this).val() == "") return;
+    var familyName = $(this).val();
+    if (familyName == "") return;
     $("#combination").find("option").remove();
     $("#combination").append("<option value=''>請選擇</option>");
 
-    var results = getCombinations($("#familyName").val());
-
-    console.log(results);
+    var results = getCombinations(familyName);
 
     results.sort(function (a, b) {
       if (a.value < b.value) return 1;
@@ -23,11 +23,10 @@ $(function () {
       if (a.middle < b.middle) return -1;
       if (a.bottom > b.bottom) return 1;
       if (a.bottom < b.bottom) return -1;
-
       return -1;
     });
 
-    for (key in results) {
+    for (var key in results) {
       var item = results[key];
       var str =
         "適合筆畫: " +
@@ -50,14 +49,7 @@ $(function () {
     if ($(this).val() == "") return;
     var val = $.parseJSON($(this).val());
 
-    $pickWords = [];
-    for (var key in $chineseCharacters) {
-      if (
-        $chineseCharacters[key].draw == val.middle ||
-        $chineseCharacters[key].draw == val.bottom
-      )
-        $pickWords.push($chineseCharacters[key]);
-    }
+    $selectedDraws = [val.middle, val.bottom];
     var draw = 0;
 
     $(".sancai").html(val.key);
@@ -85,18 +77,27 @@ $(function () {
       $(".giveName1_worse").html(getWordsOf5E(data.worse["_" + val.middle]));
 
       var normal = "";
-      for (var key in $chineseCharacters) {
-        if ($chineseCharacters[key].draw === val.middle) {
-          var chars = $chineseCharacters[key].chars;
-          var i = chars.length;
-          while (i--) {
-            if (
-              (!data.better["_" + val.middle] ||
-                data.better["_" + val.middle].indexOf(chars[i]) == -1) &&
-              (!data.worse["_" + val.middle] ||
-                data.worse["_" + val.middle].indexOf(chars[i]) == -1)
-            )
-              normal += chars[i];
+      // Use $charMap for consistency and performance
+      // Search for characters with stroke count matching val.middle
+      // We need to iterate over all characters that have stroke count val.middle
+      // The easiest way is to iterate $chineseCharacters but we can optimize it if we index by stroke count.
+      // For now, keep it simple but consistent with the order (backward while loop as per review)
+      if ($chineseCharacters) {
+        var i = $chineseCharacters.length;
+        while (i--) {
+          if ($chineseCharacters[i].draw === val.middle) {
+            var chars = $chineseCharacters[i].chars;
+            var j = chars.length;
+            while (j--) {
+              var c = chars[j];
+              if (
+                (!data.better["_" + val.middle] ||
+                  data.better["_" + val.middle].indexOf(c) == -1) &&
+                (!data.worse["_" + val.middle] ||
+                  data.worse["_" + val.middle].indexOf(c) == -1)
+              )
+                normal += c;
+            }
           }
         }
       }
@@ -105,23 +106,27 @@ $(function () {
       $(".giveNameDrawCount2").html(val.bottom);
       $(".giveName2_better").html(getWordsOf5E(data.better["_" + val.bottom]));
       $(".giveName2_worse").html(getWordsOf5E(data.worse["_" + val.bottom]));
-      var normal = "";
-      for (var key in $chineseCharacters) {
-        if ($chineseCharacters[key].draw === val.bottom) {
-          var chars = $chineseCharacters[key].chars;
-          var i = chars.length;
-          while (i--) {
-            if (
-              (!data.better["_" + val.bottom] ||
-                data.better["_" + val.bottom].indexOf(chars[i]) == -1) &&
-              (!data.worse["_" + val.bottom] ||
-                data.worse["_" + val.bottom].indexOf(chars[i]) == -1)
-            )
-              normal += chars[i];
+      var normal2 = "";
+      if ($chineseCharacters) {
+        var i = $chineseCharacters.length;
+        while (i--) {
+          if ($chineseCharacters[i].draw === val.bottom) {
+            var chars = $chineseCharacters[i].chars;
+            var j = chars.length;
+            while (j--) {
+              var c = chars[j];
+              if (
+                (!data.better["_" + val.bottom] ||
+                  data.better["_" + val.bottom].indexOf(c) == -1) &&
+                (!data.worse["_" + val.bottom] ||
+                  data.worse["_" + val.bottom].indexOf(c) == -1)
+              )
+                normal2 += c;
+            }
           }
         }
       }
-      $(".giveName2_normal").html(getWordsOf5E(normal));
+      $(".giveName2_normal").html(getWordsOf5E(normal2));
     });
   });
 
@@ -129,7 +134,8 @@ $(function () {
     $("#familyName").trigger("change");
   });
 
-  $(this).on("click", ".btnDisplay", function () {
+  $(this).on("click", ".btnDisplay", function (e) {
+    e.preventDefault();
     if ($(this).text() == "顯示") {
       $(this).text("隱藏");
       $(this).closest("tr").find("span").removeClass("hide");
@@ -140,8 +146,30 @@ $(function () {
   });
 
   $.get($api_url + "ChineseCharacters.json", function (data) {
-    //$.get($api_url + "KangXi.json", function (data) {
     $chineseCharacters = data;
+    $charMap = {};
+    for (var i = 0; i < data.length; i++) {
+      var item = data[i];
+      for (var j = 0; j < item.chars.length; j++) {
+        var char = item.chars[j];
+        if (!$charMap[char]) {
+          $charMap[char] = [];
+        }
+        var exists = false;
+        for (var k = 0; k < $charMap[char].length; k++) {
+          if ($charMap[char][k].draw === item.draw && $charMap[char][k].fiveEle === item.fiveEle) {
+            exists = true;
+            break;
+          }
+        }
+        if (!exists) {
+          $charMap[char].push({
+            draw: item.draw,
+            fiveEle: item.fiveEle,
+          });
+        }
+      }
+    }
   });
 
   $.get($api_url + "Sancai.json", function (data) {
@@ -157,8 +185,9 @@ $(function () {
 });
 
 function renderResult(type, draw) {
-  $("." + type + "DrawCount").html(draw);
+  $("." + type + "DrawCount").text(draw);
   $("." + type + "5e").html(get5EColor(draw % 10));
+  // Use .html() as these fields may contain <br /> tags for formatting
   $("." + type + "GoodOrbad").html($81[draw].text);
   $("." + type + "Content").html(get81Content(draw));
 }
@@ -171,9 +200,14 @@ function getWordsOf5E(chars) {
   var arr = [];
   if (chars) {
     for (var i = 0; i < chars.length; i++) {
-      for (var key in $pickWords) {
-        if ($pickWords[key].chars.indexOf(chars[i]) != -1) {
-          arr.push(chars[i] + get5EColor($pickWords[key].fiveEle));
+      var c = chars[i];
+      var entries = $charMap[c];
+      if (entries) {
+        for (var k = 0; k < entries.length; k++) {
+          var entry = entries[k];
+          if ($selectedDraws.indexOf(entry.draw) != -1) {
+            arr.push(c + get5EColor(entry.fiveEle));
+          }
         }
       }
     }
@@ -207,25 +241,21 @@ function get5EColor(fiveEle) {
 }
 
 function getCombinations(familyName) {
-  console.log(familyName);
   var topDrawCount = 0;
   var top5E = 0;
 
-  for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
-    if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
-      topDrawCount = $chineseCharacters[key].draw;
-      top5E = (topDrawCount + 1) % 10;
-      $(".familyName").html(
-        familyName + get5EColor($chineseCharacters[key].fiveEle)
-      );
-      $(".familyNameDrawCount").html(topDrawCount);
-      break;
-    }
+  var entries = $charMap[familyName];
+  if (entries && entries.length > 0) {
+    var entry = entries[0];
+    topDrawCount = entry.draw;
+    top5E = (topDrawCount + 1) % 10;
+    $(".familyName").text(familyName).append(get5EColor(entry.fiveEle));
+    $(".familyNameDrawCount").text(topDrawCount);
   }
 
   var results = [];
+  if (!$sancai || !$81) return results;
+
   for (var key in $sancai) {
     if (key[0] == $sancaiKey[top5E] && $sancai[key].value >= 8) {
       for (
