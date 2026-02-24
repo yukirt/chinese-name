@@ -39,10 +39,11 @@ $(function () {
         "(綜合分數:" +
         item.value +
         ")";
-      $("#combination").append(
+      options.push(
         $("<option></option>").attr("value", JSON.stringify(item)).text(str)
       );
     }
+    $("#combination").append(options);
   });
 
   $(this).on("change", "#combination", function () {
@@ -211,22 +212,32 @@ function get5EColor(fiveEle) {
     case "木":
     case 1:
     case 2:
+    case "1":
+    case "2":
       return "<b style='color:green'>(木)</b>";
     case "火":
     case 3:
     case 4:
+    case "3":
+    case "4":
       return "<b style='color:red'>(火)</b>";
     case "土":
     case 5:
     case 6:
+    case "5":
+    case "6":
       return "<b style='color:brown'>(土)</b>";
     case "金":
     case 7:
     case 8:
+    case "7":
+    case "8":
       return "<b style='color:gold'>(金)</b>";
     case "水":
     case 0:
     case 9:
+    case "0":
+    case "9":
       return "<b style='color:blue'>(水)</b>";
   }
 }
