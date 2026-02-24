@@ -14,8 +14,6 @@ $(function () {
 
     var results = getCombinations($("#familyName").val());
 
-    console.log(results);
-
     results.sort(function (a, b) {
       if (a.value < b.value) return 1;
       if (a.value > b.value) return -1;
@@ -207,13 +205,10 @@ function get5EColor(fiveEle) {
 }
 
 function getCombinations(familyName) {
-  console.log(familyName);
   var topDrawCount = 0;
   var top5E = 0;
 
   for (var key in $chineseCharacters) {
-    console.log($chineseCharacters[key]);
-    console.log($chineseCharacters[key].chars.indexOf(familyName));
     if ($chineseCharacters[key].chars.indexOf(familyName) != -1) {
       topDrawCount = $chineseCharacters[key].draw;
       top5E = (topDrawCount + 1) % 10;
